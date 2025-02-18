@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "linkml-dataset"
+version = "0.1.0"
+description = ""
+authors = ["Ritger Teunissen <ritger.teunissen@alliander.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+click = "^8.1.8"
+pydantic = "^2.10.6"
+pyyaml = "^6.0.2"
+
+[tool.poetry.scripts]
+linkml-dataset = "linkml_dataset.__main__:cli"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
