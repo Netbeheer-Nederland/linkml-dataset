@@ -164,20 +164,10 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
                                                m_rid=terminal.topological_node,
                                                terminal=[])
         forecast.topological_nodes.append(topological_node)
-        # TopologicalNode -> Terminal
-        terminal = nbl.Terminal(description=ce_name, m_rid=str(uuid4()),
-                                connectivity_node=str(uuid4()))
-        topological_node.terminal.append(terminal.m_rid)
-        forecast.terminals.append(terminal)
-        # Terminal -> MktConnectivityNode
-        mkt_c_node = nbl.MktConnectivityNode(description=ce_name,
-                                             m_rid=terminal.connectivity_node,
-                                             registered_resource=[])
-        forecast.mkt_connectivity_nodes.append(mkt_c_node)
     # TopologicalNode
     topological_node = instance_exists(ce_name, forecast.topological_nodes)
     if topological_node is None:
-        raise ValueError(f'No MktConnectivityNode found for "{ce_name}"')
+        raise ValueError(f'No TopologicalNode found for "{ce_name}"')
     # TopologicalNode -> Terminal
     terminal = nbl.Terminal(description=ce_name, m_rid=str(uuid4()),
                             conducting_equipment=str(uuid4()))
@@ -198,9 +188,18 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
                                  european_article_number_ean=ean)
     forecast.usage_points.append(usage_point)
     # MktConnectivityNode
-    mkt_c_node = instance_exists(ce_name, forecast.mkt_connectivity_nodes)
+    mkt_c_node = instance_exists(mp_name, forecast.mkt_connectivity_nodes)
     if mkt_c_node is None:
-        raise ValueError(f'No MktConnectivityNode found for "{ce_name}"')
+        # TopologicalNode -> Terminal
+        terminal = nbl.Terminal(description=ce_name, m_rid=str(uuid4()),
+                                connectivity_node=str(uuid4()))
+        topological_node.terminal.append(terminal.m_rid)
+        forecast.terminals.append(terminal)
+        # Terminal -> MktConnectivityNode
+        mkt_c_node = nbl.MktConnectivityNode(description=mp_name,
+                                             m_rid=terminal.connectivity_node,
+                                             registered_resource=[])
+        forecast.mkt_connectivity_nodes.append(mkt_c_node)
     # MarketParticipant
     mp = instance_exists(mp_name, forecast.market_participants)
     if mp is None:
