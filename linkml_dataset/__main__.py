@@ -148,7 +148,7 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
     # Substation -> PowerTransformer
     pt = instance_exists(ce_name, forecast.power_transformers)
     if pt is None:
-        log.info(f'Adding PowerTransformer "{ce_name}"')
+        log.info(f'Adding PowerTransformer "{ce_name}" to substation "{s_name}"')
         pte = nbl.PowerTransformerEnd(description=ce_name, m_rid=str(uuid4()),
                                       terminal=str(uuid4()))
         pt = nbl.PowerTransformer(description=ce_name, m_rid=str(uuid4()),
