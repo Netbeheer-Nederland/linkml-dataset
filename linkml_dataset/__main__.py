@@ -70,7 +70,7 @@ def netbewust_laden(csvfile, out, region, count):
     market_participants = {}
     # Output YAML
     data = {'identifier': str(uuid4()),
-            'conforms_to': 'http://data.netbeheernederland.nl/dp-nbl-forecast/version/1.0.0',
+            'conforms_to': 'http://data.netbeheernederland.nl/dp-nbl-forecast',
             'contact_point': 'ritger.teunissen@alliander.com',
             'release_date': date.today().strftime('%Y-%m-%d'),
             'version': '1.0.0',
@@ -102,24 +102,26 @@ def netbewust_laden(csvfile, out, region, count):
                                                substations=[],
                                                lines=[])
     forecast.sub_geographical_regions.append(sub_geo_region)
-    # Market Role
-    forecast.market_roles.append(nbl.MarketRole(m_rid=str(uuid4()),
-                                                type='Charge Point Operator'))
     # Process each row in the CSV
     reader = DictReader(csvfile)
     for c, row in enumerate(reader, start=1):
         if count is not None and c > count:
             break
-        log.debug(f'Processing charge point: "{row["100_MarketEvaluationPoint.EAN"]}"')
         _nbl_charge_points(forecast,
                            row['1_Substation.Name'],
                            row['2_ConductingEquipment.Name'],
+                           row['100_MarketEvaluationPoint.EAN'].strip("'"),
                            row['110_MarketParticipant.Name'],
+                           # row['111_MarketRole.Name'],
+                           'Charge Point Operator',
                            row['120_StreetAddress.Postalcode'],
-                           row['122_Streetdetail.Number'],
+                           row['122_Streetdetail.Number'].strip(' ELP'),
                            row['123_Towndetail.Name'],
+                           row['124_Towndetail.Section'],
                            row['125_Towndetail.stateOrProvince'],
-                           row['100_MarketEvaluationPoint.EAN'])
+                           row['126_CoordinateSystem.Name'],
+                           row['127_PositionPoint.Xposition'].strip("'"),
+                           row['128_PositionPoint.Yposition'].strip("'"))
     # Output dataset
     echo(dump(forecast.dict(exclude_none=True), Dumper=IndentDumper,
               sort_keys=False, allow_unicode=True), file=out)
@@ -130,12 +132,14 @@ def _nbl_assets(forecast):
     return
 
 
-def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
-                      town_name, province, ean):
+def _nbl_charge_points(forecast, s_name, ce_name, ean, mp_name, mp_role,
+                       postal_code, number, town_name, town_section,
+                       province, c_system, pos_x, pos_y):
     """Process a single charge point."""
     def instance_exists(name, container):
         return next((i for i in container if i.description == name), None)
 
+    log.debug(f'Processing charge point: "{ean}"')
     sub_geo_region = forecast.sub_geographical_regions[0]
     # SubGeographicalRegion -> Substation
     substation = instance_exists(s_name, forecast.substations)
@@ -148,7 +152,7 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
     # Substation -> PowerTransformer
     pt = instance_exists(ce_name, forecast.power_transformers)
     if pt is None:
-        log.info(f'Adding PowerTransformer "{ce_name}" to substation "{s_name}"')
+        log.info(f'Adding PowerTransformer "{ce_name}" to Substation "{s_name}"')
         pte = nbl.PowerTransformerEnd(description=ce_name, m_rid=str(uuid4()),
                                       terminal=str(uuid4()))
         pt = nbl.PowerTransformer(description=ce_name, m_rid=str(uuid4()),
@@ -175,10 +179,20 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
     forecast.terminals.append(terminal)
     # Terminal -> EnergyConsumer
     street_address = nbl.StreetAddress(postal_code=postal_code,
-                                       street_detail=nbl.StreetDetail(number=number),
+                                       street_detail=nbl.StreetDetail(number=number,
+                                                                      code=town_section),
                                        town_detail=nbl.TownDetail(name=town_name,
                                                                   state_or_province=province))
-    location = nbl.Location(m_rid=str(uuid4()), main_address=street_address)
+    coordinate_system = instance_exists(c_system, forecast.coordinate_systems)
+    if coordinate_system is None:
+        coordinate_system = nbl.CoordinateSystem(description=c_system,
+                                                 m_rid=str(uuid4()),
+                                                 crs_urn=c_system)
+        forecast.coordinate_systems.append(coordinate_system)
+    position_point = nbl.PositionPoint(x_position=pos_x, y_position=pos_y)
+    location = nbl.Location(m_rid=str(uuid4()), main_address=street_address,
+                            coordinate_system=coordinate_system.m_rid,
+                            position_points=[position_point])
     energy_consumer = nbl.EnergyConsumer(m_rid=terminal.conducting_equipment,
                                          location=location,
                                          usage_points=[str(uuid4())])
@@ -187,24 +201,31 @@ def _nbl_charge_points(forecast, s_name, ce_name, mp_name, postal_code, number,
     usage_point = nbl.UsagePoint(m_rid=energy_consumer.usage_points[0],
                                  european_article_number_ean=ean)
     forecast.usage_points.append(usage_point)
-    # MktConnectivityNode
-    mkt_c_node = instance_exists(mp_name, forecast.mkt_connectivity_nodes)
+    # MktConnectivityNode (is unique based on ce_name + mp_name)
+    ce_mp_name = f'{ce_name}|{mp_name}'
+    mkt_c_node = instance_exists(ce_mp_name, forecast.mkt_connectivity_nodes)
     if mkt_c_node is None:
         # TopologicalNode -> Terminal
-        terminal = nbl.Terminal(description=ce_name, m_rid=str(uuid4()),
+        terminal = nbl.Terminal(description=ce_mp_name, m_rid=str(uuid4()),
                                 connectivity_node=str(uuid4()))
         topological_node.terminal.append(terminal.m_rid)
         forecast.terminals.append(terminal)
         # Terminal -> MktConnectivityNode
-        mkt_c_node = nbl.MktConnectivityNode(description=mp_name,
+        mkt_c_node = nbl.MktConnectivityNode(description=ce_mp_name,
                                              m_rid=terminal.connectivity_node,
                                              registered_resource=[])
         forecast.mkt_connectivity_nodes.append(mkt_c_node)
+    # MarketRole
+    market_role = instance_exists(mp_role, forecast.market_roles)
+    if market_role is None:
+        market_role = nbl.MarketRole(m_rid=str(uuid4()), description=mp_role,
+                                     type=mp_role)
+        forecast.market_roles.append(market_role)
     # MarketParticipant
     mp = instance_exists(mp_name, forecast.market_participants)
     if mp is None:
         mp = nbl.MarketParticipant(description=mp_name, m_rid=str(uuid4()),
-                                   market_role=[forecast.market_roles[0].m_rid])
+                                   market_role=[market_role.m_rid])
         forecast.market_participants.append(mp)
     # MktConnectivityNode -> RegisteredLoad
     registered_load = nbl.RegisteredLoad(m_rid=str(uuid4()),
