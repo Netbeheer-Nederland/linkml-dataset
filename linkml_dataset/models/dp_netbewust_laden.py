@@ -384,6 +384,8 @@ class ForecastDataSet(ConfiguredBaseModel):
     power_transformers: List[PowerTransformer] = Field(default=..., description="""All instances of PowerTransformers""")
     ac_line_segments: List[ACLineSegment] = Field(default=..., description="""All instances of ACLineSegments""")
     analogs: List[Analog] = Field(default=..., description="""All instances of Analogs""")
+    active_power_limits: List[ActivePowerLimit] = Field(default=..., description="""All instances of ActivePowerLimits""")
+    operational_limit_sets: List[OperationalLimitSet] = Field(default=..., description="""All instances of OperationalLimitSets""")
     registered_loads: List[RegisteredLoad] = Field(default=..., description="""All instances of RegisteredLoads""")
     mkt_connectivity_nodes: List[MktConnectivityNode] = Field(default=..., description="""All instances of MktConnectivityNodes""")
     market_participants: List[MarketParticipant] = Field(default=..., description="""All instances of MarketParticipants""")
