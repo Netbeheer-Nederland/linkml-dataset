@@ -74,12 +74,16 @@ class NetbewustLaden:
                                                  self._fc.topological_nodes)
         if topological_node is None:
             raise ValueError(f'No TopologicalNode found for "{ce_name}"')
-        # TopologicalNode -> UsagePoint
-        usage_point = self._usage_point(topological_node, ean, postal_code,
+        # TopologicalNode -> Terminal
+        terminal = nbl.Terminal(m_rid=str(uuid4()))
+        topological_node.terminal.append(terminal.m_rid)
+        self._fc.terminals.append(terminal)
+        # Terminal -> UsagePoint
+        usage_point = self._usage_point(terminal, ean, postal_code,
                                         number, town_name, town_section,
                                         province, crs_urn, x_pos, y_pos)
-        # TopologicalNode -> RegisteredLoad
-        self._registered_load(topological_node, ce_name, mp_name, mp_role)
+        # Terminal -> RegisteredLoad
+        self._registered_load(terminal, ce_name, mp_name, mp_role)
 
     def assets(self, s_name, ce_name, psr_type, postal_code, street_name,
                number, code, town_name, town_section, province, crs_urn, x_pos,
@@ -151,7 +155,6 @@ class NetbewustLaden:
     def _power_transformer_end(self, power_transformer):
         """cim:PowerTransformerEnd. Returns the terminal."""
         pte = nbl.PowerTransformerEnd(m_rid=str(uuid4()),
-                                      description=power_transformer.description,
                                       terminal=str(uuid4()))
         power_transformer.power_transformer_end.append(pte)
         # PowerTransformerEnd -> Terminal
@@ -201,22 +204,17 @@ class NetbewustLaden:
             self._fc.topological_nodes.append(topological_node)
         return pt
 
-    def _usage_point(self, topological_node, ean, postal_code, number,
-                     town_name, town_section, province, crs_urn, x_pos, y_pos):
+    def _usage_point(self, terminal, ean, postal_code, number, town_name,
+                     town_section, province, crs_urn, x_pos, y_pos):
         """cim:UsagePoint"""
-        # TopologicalNode -> Terminal
-        terminal = nbl.Terminal(description=topological_node.description,
-                                m_rid=str(uuid4()),
-                                conducting_equipment=str(uuid4()))
-        topological_node.terminal.append(terminal.m_rid)
-        self._fc.terminals.append(terminal)
         # Terminal -> EnergyConsumer
         location = self._location(postal_code, number, town_name,
                                   town_section, province, crs_urn, x_pos,
                                   y_pos)
         energy_consumer = nbl.EnergyConsumer(location=location,
                                              usage_points=[str(uuid4())],
-                                             m_rid=terminal.conducting_equipment)
+                                             m_rid=str(uuid4()))
+        terminal.conducting_equipment = energy_consumer.m_rid
         self._fc.energy_consumers.append(energy_consumer)
         # EnergyConsumer -> UsagePoint
         usage_point = nbl.UsagePoint(m_rid=energy_consumer.usage_points[0],
@@ -224,28 +222,13 @@ class NetbewustLaden:
         self._fc.usage_points.append(usage_point)
         return usage_point
 
-    def _mkt_connectivity_node(self, topological_node, ce_mp_name):
-        """cim:MktConnectivityNode"""
-        mkt_c_node = self._instance_exists(ce_mp_name,
-                                           self._fc.mkt_connectivity_nodes)
-        if mkt_c_node is None:
-            # TopologicalNode -> Terminal
-            terminal = nbl.Terminal(description=ce_mp_name, m_rid=str(uuid4()),
-                                    connectivity_node=str(uuid4()))
-            topological_node.terminal.append(terminal.m_rid)
-            self._fc.terminals.append(terminal)
-            # Terminal -> MktConnectivityNode
-            mkt_c_node = nbl.MktConnectivityNode(description=ce_mp_name,
-                                                 m_rid=terminal.connectivity_node,
-                                                 registered_resource=[])
-            self._fc.mkt_connectivity_nodes.append(mkt_c_node)
-        return mkt_c_node
-
-    def _registered_load(self, topological_node, ce_name, mp_name, mp_role):
+    def _registered_load(self, terminal, ce_name, mp_name, mp_role):
         """cim:RegisteredLoad"""
-        ce_mp_name = f'{ce_name}|{mp_name}'
         # MktConnectivityNode
-        mkt_c_node = self._mkt_connectivity_node(topological_node, ce_mp_name)
+        mkt_c_node = nbl.MktConnectivityNode(m_rid=str(uuid4()),
+                                             registered_resource=[])
+        terminal.connectivity_node = mkt_c_node.m_rid
+        self._fc.mkt_connectivity_nodes.append(mkt_c_node)
         # MarketRole
         market_role = self._instance_exists(mp_role, self._fc.market_roles)
         if market_role is None:
