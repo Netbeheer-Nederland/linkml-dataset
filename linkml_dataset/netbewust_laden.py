@@ -2,7 +2,8 @@
 
 from datetime import date
 from uuid import uuid4
-from yaml import safe_load, dump, SafeDumper
+from yaml import safe_load, dump, CSafeDumper as SafeDumper
+from json import dumps
 
 from .models import dp_netbewust_laden as nbl
 
@@ -16,7 +17,8 @@ class IndentDumper(SafeDumper):
 
 
 class NetbewustLaden:
-    def __init__(self, region):
+    def __init__(self, region, only_coord):
+        self._only_coord = only_coord
         # Set up DataSet
         data = {'identifier': str(uuid4()),
                 'conforms_to': 'http://data.netbeheernederland.nl/dp-nbl-forecast',
@@ -56,8 +58,10 @@ class NetbewustLaden:
 
     def __str__(self):
         """Dump ForecastDataSet to YAML."""
-        return dump(self._fc.dict(exclude_none=True), Dumper=IndentDumper,
-                    sort_keys=False, allow_unicode=True)
+        log.info('Creating JSON output')
+        # return dump(self._fc.dict(exclude_none=True), Dumper=IndentDumper,
+        #             sort_keys=False, allow_unicode=True)
+        return dumps(self._fc.dict(exclude_none=True), indent=4, default=str)
 
     def charge_points(self, s_name, ce_name, ean, mp_name, mp_role,
                       postal_code, number, town_name, town_section, province,
@@ -145,7 +149,7 @@ class NetbewustLaden:
         """cim:Substation"""
         substation = self._instance_exists(s_name, self._fc.substations)
         if substation is None:
-            log.info(f'Adding Substation "{s_name}"')
+            log.debug(f'Adding Substation "{s_name}"')
             substation = nbl.Substation(m_rid=str(uuid4()), description=s_name,
                                         equipments=[])
             sub_geo_region.substations.append(substation.m_rid)
@@ -162,15 +166,24 @@ class NetbewustLaden:
         self._fc.terminals.append(terminal)
         return terminal
 
-    def _location(self, postal_code, number, town_name, town_section, province,
-                  crs_urn, x_pos, y_pos):
-        """cim:Location"""
+    def _street_address(self, postal_code, number, town_name, town_section,
+                        province):
+        """cim:StreetAddress"""
+        if self._only_coord:
+            return None
         street_detail = nbl.StreetDetail(number=number, code=town_section)
         town_detail = nbl.TownDetail(name=town_name,
                                      state_or_province=province)
         street_address = nbl.StreetAddress(postal_code=postal_code,
                                            street_detail=street_detail,
                                            town_detail=town_detail)
+        return street_address
+
+    def _location(self, postal_code, number, town_name, town_section, province,
+                  crs_urn, x_pos, y_pos):
+        """cim:Location"""
+        street_address = self._street_address(postal_code, number, town_name,
+                                              town_section, province)
         coordinate_system = self._instance_exists(crs_urn,
                                                   self._fc.coordinate_systems)
         if coordinate_system is None:
@@ -188,7 +201,7 @@ class NetbewustLaden:
         """cim:PowerTransformer"""
         pt = self._instance_exists(ce_name, self._fc.power_transformers)
         if pt is None:
-            log.info(f'Adding PowerTransformer "{ce_name}" to Substation "{substation.description}"')
+            log.debug(f'Adding PowerTransformer "{ce_name}" to Substation "{substation.description}"')
             # PowerTransformer
             pt = nbl.PowerTransformer(description=ce_name, m_rid=str(uuid4()),
                                       power_transformer_end=[])

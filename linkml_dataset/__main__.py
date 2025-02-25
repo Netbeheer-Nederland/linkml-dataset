@@ -51,18 +51,23 @@ def cli(log, debug):
 @option('--region', '-r', required=True, help='Region of DSO')
 @option('--assets', type=File('rt'), required=True)
 @option('--delimiter', '-d', default=',', help='Delimiter used in CSV file')
+@option('--only-coord', is_flag=True, default=False,
+        help='Reduce location information')
 @option('--count', '-c', required=False, default=None, type=int,
         help='Number of rows to process')
 @argument('charge_points', type=File('rt'), required=True)
-def netbewust_laden(charge_points, assets, out, region, delimiter, count):
+def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
+                    count):
     """Process NBL Forecast"""
-    nbl = NetbewustLaden(region)
+    nbl = NetbewustLaden(region, only_coord)
     # Process each row in the Charge Point CSV
     reader = DictReader(charge_points, delimiter=delimiter)
     for c, row in enumerate(reader, start=1):
         if count is not None and c > count:
             break
         try:
+            if c % 100 == 0:
+                log.info(f'Processed {c} charge points')
             nbl.charge_points(row['1_Substation.Name'],
                               row['2_ConductingEquipment.Name'],
                               row['100_MarketEvaluationPoint.EAN'].strip("'"),
@@ -78,13 +83,16 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, count):
                               row['127_PositionPoint.Xposition'].strip("'"),
                               row['128_PositionPoint.Yposition'].strip("'"))
         except ValueError as e:
-            log.error(e)
+            # log.error(e)
+            continue
     # Process each row in the Charge Point CSV
     reader = DictReader(assets, delimiter=delimiter)
     for c, row in enumerate(reader, start=1):
         if count is not None and c > count:
             break
         try:
+            if c % 100 == 0:
+                log.info(f'Processed {c} assets')
             nbl.assets(row['1_Substation.Name'],
                        row['2_ConductingEquipment.Name'],
                        row['3_MktPSRType.PsrType'],
@@ -113,6 +121,7 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, count):
                         row['52_ActivePowerLimit.UnitSymbol'],
                         float(row['53_ActivePowerLimit.Value'])))
         except ValueError as e:
-            log.error(f'{row['2_ConductingEquipment.Name']}: {e}')
+            # log.error(f'{row['2_ConductingEquipment.Name']}: {e}')
+            continue
     # Output dataset
     echo(nbl, file=out)
