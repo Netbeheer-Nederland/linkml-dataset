@@ -50,14 +50,15 @@ def cli(log, debug):
         help='Output file.  Omit to print schema to stdout')
 @option('--region', '-r', required=True, help='Region of DSO')
 @option('--assets', type=File('rt'), required=True)
+@option('--delimiter', '-d', default=',', help='Delimiter used in CSV file')
 @option('--count', '-c', required=False, default=None, type=int,
         help='Number of rows to process')
 @argument('charge_points', type=File('rt'), required=True)
-def netbewust_laden(charge_points, assets, out, region, count):
+def netbewust_laden(charge_points, assets, out, region, delimiter, count):
     """Process NBL Forecast"""
     nbl = NetbewustLaden(region)
     # Process each row in the Charge Point CSV
-    reader = DictReader(charge_points)
+    reader = DictReader(charge_points, delimiter=delimiter)
     for c, row in enumerate(reader, start=1):
         if count is not None and c > count:
             break
@@ -69,17 +70,17 @@ def netbewust_laden(charge_points, assets, out, region, count):
                               # row['111_MarketRole.Name'],
                               'Charge Point Operator',
                               row['120_StreetAddress.Postalcode'],
-                              row['122_Streetdetail.Number'].strip(' ELP'),
-                              row['123_Towndetail.Name'],
-                              row['124_Towndetail.Section'],
-                              row['125_Towndetail.stateOrProvince'],
+                              row['122_StreetDetail.Number'].strip(' ELP'),
+                              row['123_TownDetail.Name'],
+                              row['124_TownDetail.Section'],
+                              row['125_TownDetail.stateOrProvince'],
                               row['126_CoordinateSystem.Name'],
                               row['127_PositionPoint.Xposition'].strip("'"),
                               row['128_PositionPoint.Yposition'].strip("'"))
         except ValueError as e:
             log.error(e)
     # Process each row in the Charge Point CSV
-    reader = DictReader(assets)
+    reader = DictReader(assets, delimiter=delimiter)
     for c, row in enumerate(reader, start=1):
         if count is not None and c > count:
             break
@@ -88,12 +89,12 @@ def netbewust_laden(charge_points, assets, out, region, count):
                        row['2_ConductingEquipment.Name'],
                        row['3_MktPSRType.PsrType'],
                        row['10_StreetAddress.Postalcode'],
-                       row['11_Streetdetail.Name'],
-                       row['12_Streetdetail.Number'],
+                       row['11_StreetDetail.Name'],
+                       row['12_StreetDetail.Number'],
                        row['13_StreetDetail.Code'],
-                       row['14_Towndetail.Name'],
-                       row['15_Towndetail.Section'],
-                       row['16_Towndetail.stateOrProvince'],
+                       row['14_TownDetail.Name'],
+                       row['15_TownDetail.Section'],
+                       row['16_TownDetail.StateOrProvince'],
                        row['17_CoordinateSystem.Name'],
                        row['18_PositionPoint.Xposition'].strip("'"),
                        row['19_PositionPoint.Yposition'].strip("'"),
