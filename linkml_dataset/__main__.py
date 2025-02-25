@@ -78,7 +78,7 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
                               row['122_StreetDetail.Number'].strip(' ELP'),
                               row['123_TownDetail.Name'],
                               row['124_TownDetail.Section'],
-                              row['125_TownDetail.stateOrProvince'],
+                              row['125_TownDetail.StateOrProvince'],
                               row['126_CoordinateSystem.Name'],
                               row['127_PositionPoint.Xposition'].strip("'"),
                               row['128_PositionPoint.Yposition'].strip("'"))

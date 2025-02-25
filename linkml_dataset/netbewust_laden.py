@@ -61,7 +61,7 @@ class NetbewustLaden:
         log.info('Creating JSON output')
         # return dump(self._fc.dict(exclude_none=True), Dumper=IndentDumper,
         #             sort_keys=False, allow_unicode=True)
-        return dumps(self._fc.dict(exclude_none=True), indent=4, default=str)
+        return dumps(self._fc.dict(exclude_none=True), indent=2, default=str)
 
     def charge_points(self, s_name, ce_name, ean, mp_name, mp_role,
                       postal_code, number, town_name, town_section, province,
