@@ -18,7 +18,12 @@ class IndentDumper(SafeDumper):
 
 class NetbewustLaden:
     def __init__(self, region, only_coord):
+        # Only provide limited location information
         self._only_coord = only_coord
+        # Cache dictionaries to speed up lookups
+        self._power_transformers = {}
+        self._substations = {}
+        self._topological_nodes = {}
         # Set up DataSet
         data = {'identifier': str(uuid4()),
                 'conforms_to': 'http://data.netbeheernederland.nl/dp-nbl-forecast',
@@ -74,8 +79,7 @@ class NetbewustLaden:
         # Substation -> PowerTransformer
         pt = self._power_transformer(substation, ce_name)
         # TopologicalNode
-        topological_node = self._instance_exists(ce_name,
-                                                 self._fc.topological_nodes)
+        topological_node = self._topological_node_exists(ce_name)
         if topological_node is None:
             raise ValueError(f'No TopologicalNode found for "{ce_name}"')
         # TopologicalNode -> Terminal
@@ -126,6 +130,21 @@ class NetbewustLaden:
     def _instance_exists(self, name, container):
         return next((i for i in container if i.description == name), None)
 
+    def _substation_exists(self, s_name):
+        """ """
+        return (self._substations[s_name] if s_name in self._substations else
+                None)
+
+    def _power_transformer_exists(self, ce_name):
+        """ """
+        return (self._power_transformers[ce_name] if ce_name in
+                self._power_transformers else None)
+
+    def _topological_node_exists(self, ce_name):
+        """ """
+        return (self._topological_nodes[ce_name] if ce_name in
+                self._topological_nodes else None)
+
     def _active_power_limit(self, name, value, unit, multiplier):
         """cim:ActivePowerLimit"""
         ap = nbl.ActivePower(multiplier=multiplier, unit=unit, value=value)
@@ -147,13 +166,15 @@ class NetbewustLaden:
 
     def _substation(self, sub_geo_region, s_name):
         """cim:Substation"""
-        substation = self._instance_exists(s_name, self._fc.substations)
+        # substation = self._instance_exists(s_name, self._fc.substations)
+        substation = self._substation_exists(s_name)
         if substation is None:
             log.debug(f'Adding Substation "{s_name}"')
             substation = nbl.Substation(m_rid=str(uuid4()), description=s_name,
                                         equipments=[])
             sub_geo_region.substations.append(substation.m_rid)
             self._fc.substations.append(substation)
+            self._substations[s_name] = substation
         return substation
 
     def _power_transformer_end(self, power_transformer):
@@ -199,7 +220,7 @@ class NetbewustLaden:
 
     def _power_transformer(self, substation, ce_name):
         """cim:PowerTransformer"""
-        pt = self._instance_exists(ce_name, self._fc.power_transformers)
+        pt = self._power_transformer_exists(ce_name)
         if pt is None:
             log.debug(f'Adding PowerTransformer "{ce_name}" to Substation "{substation.description}"')
             # PowerTransformer
@@ -207,6 +228,7 @@ class NetbewustLaden:
                                       power_transformer_end=[])
             substation.equipments.append(pt.m_rid)
             self._fc.power_transformers.append(pt)
+            self._power_transformers[ce_name] = pt
             # PowerTransformerEnd
             terminal = self._power_transformer_end(pt)
             # Terminal -> TopologicalNode
@@ -215,6 +237,7 @@ class NetbewustLaden:
                                                    terminal=[])
             terminal.topological_node = topological_node.m_rid
             self._fc.topological_nodes.append(topological_node)
+            self._topological_nodes[ce_name] = topological_node
         return pt
 
     def _usage_point(self, terminal, ean, postal_code, number, town_name,

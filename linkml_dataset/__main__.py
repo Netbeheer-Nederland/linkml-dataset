@@ -66,7 +66,7 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
         if count is not None and c > count:
             break
         try:
-            if c % 100 == 0:
+            if c % 1000 == 0:
                 log.info(f'Processed {c} charge points')
             nbl.charge_points(row['1_Substation.Name'],
                               row['2_ConductingEquipment.Name'],
@@ -91,7 +91,7 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
         if count is not None and c > count:
             break
         try:
-            if c % 100 == 0:
+            if c % 1000 == 0:
                 log.info(f'Processed {c} assets')
             nbl.assets(row['1_Substation.Name'],
                        row['2_ConductingEquipment.Name'],
