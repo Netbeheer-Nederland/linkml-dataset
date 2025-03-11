@@ -49,13 +49,13 @@ def cli(log, debug):
 @option('--out', '-o', type=File('wt'), default=stdout,
         help='Output file.  Omit to print schema to stdout')
 @option('--region', '-r', required=True, help='Region of DSO')
-@option('--assets', type=File('rt'), required=True)
+@option('--assets', type=File('r'), required=True)
 @option('--delimiter', '-d', default=',', help='Delimiter used in CSV file')
 @option('--only-coord', is_flag=True, default=False,
         help='Reduce location information')
 @option('--count', '-c', required=False, default=None, type=int,
         help='Number of rows to process')
-@argument('charge_points', type=File('rt'), required=True)
+@argument('charge_points', type=File('r'), required=True)
 def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
                     count):
     """Process NBL Forecast"""
