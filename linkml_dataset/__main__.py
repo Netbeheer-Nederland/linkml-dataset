@@ -6,6 +6,7 @@ from pprint import pprint
 from csv import DictReader
 
 from .netbewust_laden import NetbewustLaden
+from .cgmes import CGMES
 
 import logging
 log = logging.getLogger(__name__)
@@ -125,3 +126,22 @@ def netbewust_laden(charge_points, assets, out, region, delimiter, only_coord,
             continue
     # Output dataset
     echo(nbl, file=out)
+
+
+@cli.command()
+@option('--out', '-o', type=File('wt'), default=stdout,
+        help='Output file.  Omit to print to stdout')
+@argument('jsonfile', type=File('r', encoding='utf-8'), required=True)
+def cgmes(jsonfile, out):
+    """Process CGMES JSON LD"""
+    cgmes = CGMES(jsonfile)
+    for e in cgmes.edges():
+        if e.predicate == 'cim:Name.IdentifiedObject':
+            continue
+        if e.predicate == 'cim:Name.NameType':
+            continue
+        if e.predicate == 'cim:NameType.NameTypeAuthority':
+            continue
+        subject = e.subject.replace('cim:', '')
+        obj = e.object.replace('cim:', '')
+        echo(f'{subject} -> {obj}: "{e.predicate} ({e.terminal})"')
