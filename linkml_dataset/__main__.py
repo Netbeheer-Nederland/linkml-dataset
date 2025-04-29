@@ -136,12 +136,7 @@ def cgmes(jsonfile, out):
     """Process CGMES JSON LD"""
     cgmes = CGMES(jsonfile)
     for e in cgmes.edges():
-        if e.predicate == 'cim:Name.IdentifiedObject':
-            continue
-        if e.predicate == 'cim:Name.NameType':
-            continue
-        if e.predicate == 'cim:NameType.NameTypeAuthority':
-            continue
-        subject = e.subject.replace('cim:', '')
-        obj = e.object.replace('cim:', '')
-        echo(f'{subject} -> {obj}: "{e.predicate} ({e.terminal})"')
+        subj = e.subject.split('#')[-1]
+        pred = e.predicate.split('#')[-1]
+        obj = e.object.split('#')[-1]
+        echo(f'{subj} -> {obj}: "{pred}"')
